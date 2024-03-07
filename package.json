@@ -1,0 +1,34 @@
+{
+  "name": "websocketservice",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/app.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prod": "SET NODE_ENV=Production & node .",
+    "dev": "SET NODE_ENV=Development & nodemon ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TooWorthless/WebSocketService.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TooWorthless/WebSocketService/issues"
+  },
+  "homepage": "https://github.com/TooWorthless/WebSocketService#readme",
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "express-handlebars": "^7.1.2",
+    "hbs": "^4.2.0",
+    "ws": "^8.16.0"
+  }
+}
