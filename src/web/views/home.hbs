@@ -9,7 +9,7 @@
 
 <script>
 
-    const socket = new WebSocket('ws://localhost:3000');
+    const socket = new WebSocket('ws://localhost:{{port}}');
 
     socket.onopen = function(event) {
         console.log('Connection established');
@@ -17,14 +17,12 @@
 
     socket.onmessage = function(event) {
         const messagesDiv = document.getElementById('messages');
-        messagesDiv.innerHTML += '<p>' + blobToString(event.data) + '</p>';
+        {{!-- messagesDiv.innerHTML += '<p>' + blobToString(event.data) + '</p>'; --}}
+        messagesDiv.innerHTML += '<p>' + event.data + '</p>';
     };
 
     socket.onclose = function(event) {
         console.log('Connection closed');
-
-        setTimeout(() => {location.reload();}, 5000);
-        
     };
 
     function sendMessage() {

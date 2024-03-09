@@ -48,7 +48,9 @@ app.use(express.json());
 
 app.get('/', async (req, res, next) => {
     try {
-        res.render('home');
+        res.render('home', {
+            port: PORT
+        });
     } catch (error) {
         next(error)
     }
