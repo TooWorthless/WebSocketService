@@ -1,5 +1,5 @@
 import { WebSocket, WebSocketServer } from 'ws';
-import amqp from 'amqplib/callback_api.js';
+import { AMQPHandler } from './messageBroker/amqpHandler.js';
 import axios from 'axios';
 
 
@@ -7,14 +7,21 @@ const createWSS = (server) => {
     const wss = new WebSocketServer({ server });
 
 
-
     const connections = new Map();
 
 
+    function saveWssConnection(ws) {
+        const id = Math.random().toString(36).substr(2, 9);
 
-    function handleWebSocketMessage(message, serverId) {
+        connections.set(id, ws);
+
+        return id;
+    }
+
+
+    async function handleWebSocketMessage(serverId, message) {
         try {
-            axios.post('http://localhost:3000/api/postJson', { message: message.toString(), serverId }, {
+            await axios.post('http://localhost:3000/api/postJson', { message: message.toString(), serverId }, {
                 headers: {
                     'Content-Type': 'application/json'
                 }
@@ -26,74 +33,30 @@ const createWSS = (server) => {
     }
 
 
-    async function handleWebSocketConnection(serverId, ws) {
-
+    async function handleWebSocketConnection(serverId) {
         try {
-            
+            const amqpHandler = new AMQPHandler();
+            await amqpHandler.connect();
 
-            await axios.post('http://localhost:3000/api/postJson', { message: `User (id:${serverId}) connected!`, serverId }, {
+            await amqpHandler.createQueueAndBind(serverId, (queue, message = '') => {
+                if (message.content) {
+                    const data = JSON.parse(message.content.toString());
+
+                    connections.forEach((ws, id) => {
+                        if (id === queue && ws.readyState === WebSocket.OPEN && id !== data.serverId) {
+                            ws.send(`Sent (${data.serverId}): ${data.message}`);
+                        }
+                    });
+                }
+            });
+
+            await axios.post('http://localhost:3000/api/postJson', { message: `User connected!`, serverId }, {
                 headers: {
                     'Content-Type': 'application/json'
                 }
             });
 
-
-            amqp.connect(
-                `amqp://${process.env.rabbitmq_username}:${process.env.rabbitmq_password}@${process.env.IP}:${process.env.AMQP_PORT}`,
-                (amqpConnectionError, connection) => {
-                    if (amqpConnectionError) {
-                        throw amqpConnectionError;
-                    }
-
-                    connection.createChannel((creatingChannelError, channel) => {
-                        if (creatingChannelError) {
-                            throw creatingChannelError;
-                        }
-
-                        const exchange = 'messages';
-
-                        channel.assertExchange(exchange, 'fanout', {
-                            durable: false
-                        });
-
-                        channel.assertQueue(serverId, {
-                            exclusive: true
-                        }, (assertingQueueError, assertedQueue) => {
-                            if (assertingQueueError) {
-                                throw assertingQueueError;
-                            }
-                            channel.bindQueue(assertedQueue.queue, exchange, '');
-
-                            channel.consume(assertedQueue.queue, (message) => {
-                                if (message.content) {
-                                    const data = JSON.parse(message.content.toString());
-
-                                    connections.forEach((ws, id) => {
-                                        if (id === assertedQueue.queue && ws.readyState === WebSocket.OPEN && id !== data.serverId) {
-                                            ws.send(`Sent (${data.serverId}): ${data.message}`);
-                                        }
-                                    });
-                                }
-                            }, {
-                                noAck: true
-                            });
-                        });
-
-
-                        ws.on('message', (message) => {
-                            handleWebSocketMessage(message, serverId);
-                        });
-
-                        ws.on('close', () => {
-                            connections.delete(serverId);
-                            channel.deleteQueue(serverId);
-                            connection.close();
-                        });
-
-
-                    });
-                }
-            );
+            return amqpHandler;
         } catch (error) {
             console.log('error.message handleWebSocketConnection :>> ', error.message);
         }
@@ -101,17 +64,21 @@ const createWSS = (server) => {
     }
 
 
+    wss.on('connection', async (ws) => {
+        const serverId = saveWssConnection(ws);
 
-    wss.on('connection', (ws) => {
-        const serverId = Math.random().toString(36).substr(2, 9);
-        console.log('serverId :>> ', serverId);
+        const amqpHandler = await handleWebSocketConnection(serverId);
 
-        connections.set(serverId, ws);
+        ws.on('message', (message) => {
+            handleWebSocketMessage(serverId, message);
+        });
 
-        handleWebSocketConnection(serverId, ws);
+        ws.on('close', () => {
+            connections.delete(serverId);
+            amqpHandler.close();
+        });
 
     });
-
 
 
     return wss;
