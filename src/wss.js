@@ -28,7 +28,7 @@ const createWSS = (server) => {
             });
 
         } catch (error) {
-            console.log('error.message handleWebSocketMessage :>> ', error.message);
+            console.log('error.message handleWebSocketMessage :>> ', error.stack);
         }
     }
 
@@ -58,7 +58,7 @@ const createWSS = (server) => {
 
             return amqpHandler;
         } catch (error) {
-            console.log('error.message handleWebSocketConnection :>> ', error.message);
+            console.log('error.message handleWebSocketConnection :>> ', error.stack);
         }
         return;
     }
@@ -68,6 +68,7 @@ const createWSS = (server) => {
         const serverId = saveWssConnection(ws);
 
         const amqpHandler = await handleWebSocketConnection(serverId);
+        if(!amqpHandler) return;
 
         ws.on('message', (message) => {
             handleWebSocketMessage(serverId, message);

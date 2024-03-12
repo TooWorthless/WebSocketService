@@ -24,7 +24,7 @@ class AMQPHandler {
                 { durable: false }
             );
         } catch (error) {
-            console.error('Error connecting to AMQP:', error);
+            console.error('Error connecting to AMQP :>> ', error.stack);
             throw error;
         }
     }
@@ -42,7 +42,7 @@ class AMQPHandler {
                 { noAck: true }
             );
         } catch (error) {
-            console.error('Error creating queue and binding:', error.stack);
+            console.error('Error creating queue and binding :>> ', error.stack);
             throw error;
         }
     }
@@ -53,7 +53,7 @@ class AMQPHandler {
             await this.channel.close();
             await this.connection.close();
         } catch (error) {
-            console.error('Error closing AMQP connection:', error.stack);
+            console.error('Error closing AMQP connection :>> ', error.stack);
         }
     }
     
