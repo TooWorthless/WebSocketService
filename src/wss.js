@@ -1,92 +1,52 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { AMQPHandler } from './messageBroker/amqpHandler.js';
-import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
+
+class WSS {
+    static connections = {};
 
 
-const createWSS = (server) => {
-    const wss = new WebSocketServer({ server });
-
-
-    const connections = new Map();
-
-
-    function saveWssConnection(ws) {
-        const id = Math.random().toString(36).substr(2, 9);
-
-        connections.set(id, ws);
-
-        return id;
+    constructor(server) {
+        this.wss = new WebSocketServer({ server });
     }
 
 
-    async function handleWebSocketMessage(serverId, message) {
-        try {
-            await axios.post('http://localhost:3000/api/postJson', { message: message.toString(), serverId }, {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+    run() {
+        this.wss.on('connection', async (ws) => {
+            
+            const connectionId = uuidv4();
+            console.log('connectionId :>> ', connectionId);
+
+            this.#handleNewConnection(connectionId, ws);
+
+            ws.on('close', () => {
+                WSS.connections[connectionId].amqpHandler.close();
+                delete WSS.connections[connectionId];
             });
-
-        } catch (error) {
-            console.log('error.message handleWebSocketMessage :>> ', error.stack);
-        }
+    
+        });
     }
 
 
-    async function handleWebSocketConnection(serverId) {
+    async #handleNewConnection(connectionId, ws) {
         try {
             const amqpHandler = new AMQPHandler();
             await amqpHandler.connect();
-
-            await amqpHandler.createQueueAndBind(serverId, (queue, message = '') => {
-                if (message.content) {
-                    const data = JSON.parse(message.content.toString());
-
-                    connections.forEach((ws, id) => {
-                        if (id === queue && ws.readyState === WebSocket.OPEN && id !== data.serverId) {
-                            ws.send(`Sent (${data.serverId}): ${data.message}`);
-                        }
-                    });
-                }
-            });
-
-            await axios.post('http://localhost:3000/api/postJson', { message: `User connected!`, serverId }, {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            return amqpHandler;
+            const queueName = await amqpHandler.createQueueAndBind(connectionId);
+    
+            WSS.connections[connectionId] = {
+                ws,
+                queueName,
+                amqpHandler
+            };
         } catch (error) {
-            console.log('error.message handleWebSocketConnection :>> ', error.stack);
+            console.log('error.message handleNewConnection :>> ', error.stack);
         }
-        return;
     }
-
-
-    wss.on('connection', async (ws) => {
-        const serverId = saveWssConnection(ws);
-
-        const amqpHandler = await handleWebSocketConnection(serverId);
-        if(!amqpHandler) return;
-
-        ws.on('message', (message) => {
-            handleWebSocketMessage(serverId, message);
-        });
-
-        ws.on('close', () => {
-            connections.delete(serverId);
-            amqpHandler.close();
-        });
-
-    });
-
-
-    return wss;
-};
+}
 
 
 export {
-    createWSS
+    WSS
 }
 

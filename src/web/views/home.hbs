@@ -1,10 +1,4 @@
-
-<input type="text" id="messageInput" placeholder="Enter your message">
-<button onclick="sendMessage()">Send</button>
 <div id="messages"></div>
-
-
-<script src="./utils.js"></script>
 
 
 <script>
@@ -17,19 +11,11 @@
 
     socket.onmessage = function(event) {
         const messagesDiv = document.getElementById('messages');
-        {{!-- messagesDiv.innerHTML += '<p>' + blobToString(event.data) + '</p>'; --}}
         messagesDiv.innerHTML += '<p>' + event.data + '</p>';
     };
 
     socket.onclose = function(event) {
         console.log('Connection closed');
     };
-
-    function sendMessage() {
-        const messageInput = document.getElementById('messageInput');
-        const message = messageInput.value;
-        socket.send(message);
-        messageInput.value = '';
-    }
 
 </script>

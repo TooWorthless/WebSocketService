@@ -1,11 +1,10 @@
 import express from 'express';
-import hbs from 'hbs';
-import expressHbs from 'express-handlebars';
+import { engine } from 'express-handlebars';
 
 import { createServer } from 'http';
 
 import { logErrors, errorHandler } from './utils.js';
-import { createWSS } from './wss.js';
+import { WSS } from './wss.js';
 
 import dotenv from 'dotenv';
 
@@ -20,22 +19,22 @@ const app = express();
 
 const server = createServer(app);
 
-const wss = createWSS(server);
+const wss = new WSS(server);
+wss.run();
 
 
 
 
 
-app.engine('hbs', expressHbs.engine(
+app.engine('.hbs', engine(
     {
         layoutsDir: './src/web/views/layouts', 
         defaultLayout: 'layout',
         extname: 'hbs'
     }
 ));
-app.set('view engine', 'hbs');
+app.set('view engine', '.hbs');
 app.set('views', './src/web/views');
-hbs.registerPartials('./src/web/views/partials');
 
 
 

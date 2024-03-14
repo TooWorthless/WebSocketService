@@ -1,4 +1,6 @@
 import amqp from 'amqplib';
+import { WebSocket } from 'ws';
+import { WSS } from '../wss.js';
 
 
 
@@ -20,7 +22,7 @@ class AMQPHandler {
             const exchange = 'messages';
             await this.channel.assertExchange(
                 exchange, 
-                'fanout', 
+                'direct', 
                 { durable: false }
             );
         } catch (error) {
@@ -30,17 +32,32 @@ class AMQPHandler {
     }
 
 
-    async createQueueAndBind(queue, cb_consume) {
+    async createQueueAndBind(queueKey) {
         try {
-            await this.channel.assertQueue(queue, { exclusive: true });
-            await this.channel.bindQueue(queue, 'messages', '');
+            const assertedQueue = await this.channel.assertQueue('', { exclusive: true });
+
+            const exchange = 'messages';
+            await this.channel.bindQueue(assertedQueue.queue, exchange, queueKey);
+            await this.channel.bindQueue(assertedQueue.queue, exchange, 'forBroadcast');
+            
             this.channel.consume(
-                queue,
+                assertedQueue.queue,
                 (message) => {
-                    cb_consume(queue, message)
+                    if (message.content) {
+                        const data = JSON.parse(message.content.toString());
+    
+                        for(const connectionId in WSS.connections) {
+                            if(WSS.connections[connectionId].queueName === assertedQueue.queue && WSS.connections[connectionId].ws.readyState === WebSocket.OPEN) {
+                                console.log('data :>> ', data);
+                                WSS.connections[connectionId].ws.send(`${data.timestamp} : ${data.message}`);
+                            }
+                        }
+                    }
                 },
                 { noAck: true }
             );
+
+            return assertedQueue.queue;
         } catch (error) {
             console.error('Error creating queue and binding :>> ', error.stack);
             throw error;
